@@ -4,13 +4,14 @@ StreamDiffusionTD Installer CLI
 Command-line interface for the installer module.
 
 Usage:
-    python -m sd_installer check          # Check system readiness
-    python -m sd_installer install        # Fresh install (auto-detects CUDA)
+    python -m sd_installer check              # Check system readiness
+    python -m sd_installer install            # Fresh install (auto-detects CUDA)
     python -m sd_installer install --cuda cu128  # Install with specific CUDA
-    python -m sd_installer verify         # Verify existing installation
-    python -m sd_installer diagnose       # Detailed diagnostics
-    python -m sd_installer repair         # Auto-fix known issues
-    python -m sd_installer generate-bat   # Generate standalone batch file
+    python -m sd_installer verify             # Verify existing installation
+    python -m sd_installer diagnose           # Detailed diagnostics
+    python -m sd_installer repair             # Auto-fix known issues
+    python -m sd_installer generate-bat       # Generate standalone batch file
+    python -m sd_installer install-tensorrt   # Install TensorRT packages
 """
 
 import argparse
@@ -79,7 +80,7 @@ def cmd_check(args):
 
     # Check if venv exists
     try:
-        base = find_base_folder()
+        base = Path(args.base_folder) if args.base_folder else find_base_folder()
         venv_path = base / "venv"
         if venv_path.exists():
             print(f"Venv: Found at {venv_path}")
@@ -311,6 +312,29 @@ def cmd_generate_bat(args):
     return 0
 
 
+def cmd_install_tensorrt(args):
+    """Install TensorRT packages."""
+    from .tensorrt import install, get_cuda_version_from_torch
+
+    print("StreamDiffusionTD TensorRT Installation")
+    print("=" * 40)
+
+    # Get CUDA version
+    cuda = args.cuda
+    if not cuda:
+        cuda = get_cuda_version_from_torch()
+        if not cuda:
+            print("ERROR: Could not detect CUDA version.")
+            print("Make sure PyTorch is installed, or specify --cuda manually.")
+            return 1
+
+    print(f"CUDA version: {cuda}")
+    print()
+
+    success = install(cu=cuda)
+    return 0 if success else 1
+
+
 def main():
     """Main CLI entry point."""
     parser = argparse.ArgumentParser(
@@ -380,6 +404,14 @@ def main():
         help="Output path for batch file",
     )
     bat_parser.set_defaults(func=cmd_generate_bat)
+
+    # install-tensorrt command
+    trt_parser = subparsers.add_parser("install-tensorrt", help="Install TensorRT packages")
+    trt_parser.add_argument(
+        "--cuda",
+        help="CUDA version (e.g., 12.1, 12.8). Auto-detected from PyTorch if not specified.",
+    )
+    trt_parser.set_defaults(func=cmd_install_tensorrt)
 
     args = parser.parse_args()
 
