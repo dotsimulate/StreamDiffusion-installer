@@ -1,0 +1,36 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sd-installer"
+version = "0.3.1"
+description = "CLI installer for StreamDiffusion environments"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [
+    {name = "DotSimulate"}
+]
+keywords = ["streamdiffusion", "touchdesigner", "installer", "cuda", "pytorch"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: Microsoft :: Windows",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Topic :: Software Development :: Build Tools",
+]
+
+[project.urls]
+Homepage = "https://github.com/dotsimulate/StreamDiffusion-installer"
+Repository = "https://github.com/dotsimulate/StreamDiffusion-installer"
+
+[project.scripts]
+sd-installer = "sd_installer.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["sd_installer*"]
