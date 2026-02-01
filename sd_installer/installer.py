@@ -23,6 +23,7 @@ MANUAL_PINS = {
     "numpy": "1.26.4",
     "timm": ">=1.0.24",
     "opencv-python": "4.8.1.78",
+    "python-osc": "",  # Required for TouchDesigner OSC communication
 }
 
 # PyTorch configurations by CUDA version
@@ -218,9 +219,17 @@ class Installer:
         self._run_pip(["-e", ".[tensorrt,controlnet,ipadapter]"], check=True, cwd=self.streamdiffusion_path)
 
     def phase5_missing_pins(self):
-        """Phase 5: Install packages not pinned in setup.py."""
-        self._report_progress("Installing packages not in setup.py (timm)...", 5, 8)
+        """Phase 5: Install packages not pinned in setup.py and fix diffusers."""
+        self._report_progress("Installing packages not in setup.py (timm, python-osc)...", 5, 8)
         self._run_pip([f"timm{MANUAL_PINS['timm']}"])
+        self._run_pip(["python-osc"])  # Required for TouchDesigner OSC communication
+
+        # Force reinstall varshith15 diffusers (other deps may have overwritten it)
+        self._report_progress("Ensuring varshith15 diffusers fork with kvo_cache support...", 5, 8)
+        self._run_pip([
+            "--force-reinstall", "--no-deps",
+            "diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922"
+        ])
 
     def phase6_conflict_prone(self):
         """Phase 6: Fix conflict-prone packages with --no-deps."""
@@ -363,6 +372,11 @@ python -m pip install {no_cache} -e ".[tensorrt,controlnet,ipadapter]"
 rem === PHASE 6: MISSING PINS (not in setup.py) ===
 echo [5/8] Installing packages not pinned in setup.py...
 python -m pip install {no_cache} "timm{MANUAL_PINS['timm']}"
+python -m pip install {no_cache} python-osc
+
+rem Force reinstall varshith15 diffusers (other deps may have overwritten it)
+echo [5/8] Ensuring varshith15 diffusers fork with kvo_cache support...
+python -m pip install {no_cache} --force-reinstall --no-deps "diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922"
 
 rem === PHASE 7: CONFLICT-PRONE PACKAGES (--no-deps) ===
 echo [6/8] Fixing conflict-prone packages...
@@ -382,7 +396,7 @@ python -c "import mediapipe as mp; mp.solutions.drawing_utils; print('mediapipe:
 python -c "from transformers import MT5Tokenizer; print('transformers MT5: OK')"
 python -c "from huggingface_hub import hf_hub_download; print('huggingface_hub: OK')"
 python -c "import numpy; assert numpy.__version__.startswith('1.'); print('numpy %%s: OK' %% numpy.__version__)"
-python -c "from diffusers.models.attention_processor import Attention; print('diffusers (varshith15 fork): OK')"
+python -c "import inspect; from diffusers.models.attention_processor import Attention; assert 'kvo_cache' in inspect.signature(Attention.forward).parameters, 'Missing kvo_cache - wrong diffusers!'; print('diffusers (varshith15 fork with kvo_cache): OK')"
 
 echo ========================================
 echo Installation Complete

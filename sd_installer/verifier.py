@@ -57,8 +57,8 @@ VERIFICATION_CHECKS = [
     ),
     (
         "diffusers fork",
-        "from diffusers.models.attention_processor import Attention; print('OK')",
-        "diffusers (varshith15 fork)"
+        "import inspect; from diffusers.models.attention_processor import Attention; assert 'kvo_cache' in inspect.signature(Attention.forward).parameters, 'Missing kvo_cache'; print('OK')",
+        "diffusers (varshith15 fork with kvo_cache)"
     ),
     (
         "accelerate",
@@ -253,6 +253,14 @@ KNOWN_ERRORS = {
     "'onnx.helper' has no attribute 'float32_to_bfloat16'": {
         "cause": "onnx version too new",
         "fix": "pip install onnx==1.18.0",
+    },
+    "Missing kvo_cache": {
+        "cause": "Wrong diffusers installed (vanilla instead of varshith15 fork)",
+        "fix": "pip install --force-reinstall --no-deps 'diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922'",
+    },
+    "unexpected keyword argument 'kvo_cache'": {
+        "cause": "Wrong diffusers installed (vanilla instead of varshith15 fork)",
+        "fix": "pip install --force-reinstall --no-deps 'diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922'",
     },
 }
 
