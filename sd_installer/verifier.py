@@ -70,6 +70,11 @@ VERIFICATION_CHECKS = [
         "from controlnet_aux import OpenposeDetector; print('OK')",
         "controlnet_aux"
     ),
+    (
+        "peft (USE_PEFT_BACKEND)",
+        "from diffusers.utils import USE_PEFT_BACKEND; assert USE_PEFT_BACKEND, 'peft not detected'; print('OK')",
+        "peft (required for Cached Attention/StreamV2V)"
+    ),
 ]
 
 
@@ -208,6 +213,7 @@ class Verifier:
             ("xformers", "import xformers; print(xformers.__version__)"),
             ("onnx", "import onnx; print(onnx.__version__)"),
             ("onnxruntime", "import onnxruntime; print(onnxruntime.__version__)"),
+            ("peft", "import peft; print(peft.__version__)"),
         ]
 
         for pkg, code in version_checks:
@@ -261,6 +267,10 @@ KNOWN_ERRORS = {
     "unexpected keyword argument 'kvo_cache'": {
         "cause": "Wrong diffusers installed (vanilla instead of varshith15 fork)",
         "fix": "pip install --force-reinstall --no-deps 'diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922'",
+    },
+    "Linear.forward() takes 2 positional arguments but 3 were given": {
+        "cause": "peft not installed - Cached Attention (StreamV2V) requires peft for USE_PEFT_BACKEND=True",
+        "fix": "pip install peft==0.17.1",
     },
 }
 

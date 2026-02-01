@@ -24,6 +24,7 @@ MANUAL_PINS = {
     "timm": ">=1.0.24",
     "opencv-python": "4.8.1.78",
     "python-osc": "",  # Required for TouchDesigner OSC communication
+    "peft": "0.17.1",  # Required for Cached Attention (StreamV2V) - enables USE_PEFT_BACKEND
 }
 
 # PyTorch configurations by CUDA version
@@ -220,9 +221,10 @@ class Installer:
 
     def phase5_missing_pins(self):
         """Phase 5: Install packages not pinned in setup.py and fix diffusers."""
-        self._report_progress("Installing packages not in setup.py (timm, python-osc)...", 5, 8)
+        self._report_progress("Installing packages not in setup.py (timm, python-osc, peft)...", 5, 8)
         self._run_pip([f"timm{MANUAL_PINS['timm']}"])
         self._run_pip(["python-osc"])  # Required for TouchDesigner OSC communication
+        self._run_pip([f"peft=={MANUAL_PINS['peft']}"])  # Required for Cached Attention (StreamV2V)
 
         # Force reinstall varshith15 diffusers (other deps may have overwritten it)
         self._report_progress("Ensuring varshith15 diffusers fork with kvo_cache support...", 5, 8)
@@ -373,6 +375,7 @@ rem === PHASE 6: MISSING PINS (not in setup.py) ===
 echo [5/8] Installing packages not pinned in setup.py...
 python -m pip install {no_cache} "timm{MANUAL_PINS['timm']}"
 python -m pip install {no_cache} python-osc
+python -m pip install {no_cache} "peft=={MANUAL_PINS['peft']}"
 
 rem Force reinstall varshith15 diffusers (other deps may have overwritten it)
 echo [5/8] Ensuring varshith15 diffusers fork with kvo_cache support...
@@ -397,6 +400,7 @@ python -c "from transformers import MT5Tokenizer; print('transformers MT5: OK')"
 python -c "from huggingface_hub import hf_hub_download; print('huggingface_hub: OK')"
 python -c "import numpy; assert numpy.__version__.startswith('1.'); print('numpy %%s: OK' %% numpy.__version__)"
 python -c "import inspect; from diffusers.models.attention_processor import Attention; assert 'kvo_cache' in inspect.signature(Attention.forward).parameters, 'Missing kvo_cache - wrong diffusers!'; print('diffusers (varshith15 fork with kvo_cache): OK')"
+python -c "from diffusers.utils import USE_PEFT_BACKEND; assert USE_PEFT_BACKEND, 'peft not detected!'; print('peft (USE_PEFT_BACKEND=True): OK')"
 
 echo ========================================
 echo Installation Complete
