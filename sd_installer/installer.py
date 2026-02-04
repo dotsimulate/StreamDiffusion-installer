@@ -27,6 +27,14 @@ MANUAL_PINS = {
     "peft": "0.17.1",  # Required for Cached Attention (StreamV2V) - enables USE_PEFT_BACKEND
 }
 
+# Pre-built insightface wheels for Windows (PyPI has no Windows wheels, requires C++ build tools)
+# Source: https://github.com/Gourieff/Assets
+INSIGHTFACE_WHEELS = {
+    (3, 10): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl",
+    (3, 11): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp311-cp311-win_amd64.whl",
+    (3, 12): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp312-cp312-win_amd64.whl",
+}
+
 # PyTorch configurations by CUDA version
 PYTORCH_CONFIGS = {
     "cu118": {
@@ -211,6 +219,38 @@ class Installer:
         else:
             self._report_progress("Skipping xformers (not needed for this CUDA version)...", 3, 8)
 
+    def phase3b_insightface(self):
+        """Phase 3b: Pre-install insightface from pre-built wheel (Windows only).
+
+        PyPI has no Windows wheels for insightface - only source distribution that
+        requires Visual C++ Build Tools. Pre-installing from Gourieff's pre-built
+        wheels prevents build failures for users without build tools.
+        """
+        if sys.platform != "win32":
+            return  # Only needed on Windows
+
+        # Detect Python version in venv
+        result = self._run_python("import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+        if result.returncode != 0:
+            print("  WARNING: Could not detect venv Python version, skipping insightface pre-install")
+            return
+
+        version_str = result.stdout.strip()
+        try:
+            major, minor = map(int, version_str.split('.'))
+            py_version = (major, minor)
+        except ValueError:
+            print(f"  WARNING: Could not parse Python version '{version_str}', skipping insightface pre-install")
+            return
+
+        wheel_url = INSIGHTFACE_WHEELS.get(py_version)
+        if wheel_url:
+            self._report_progress(f"Installing insightface from pre-built wheel (Python {version_str})...", 3, 8)
+            self._run_pip([wheel_url], check=False)  # Don't fail if wheel install fails
+        else:
+            print(f"  WARNING: No pre-built insightface wheel for Python {version_str}")
+            print("  insightface will be built from source (requires Visual C++ Build Tools)")
+
     def phase4_streamdiffusion(self):
         """Phase 4: Install StreamDiffusion - let setup.py handle versions."""
         self._report_progress("Installing StreamDiffusion (daydream fork)...", 4, 8)
@@ -286,6 +326,7 @@ class Installer:
         self.phase1_foundation()
         self.phase2_pytorch()
         self.phase3_xformers()
+        self.phase3b_insightface()  # Pre-install insightface from wheel (Windows)
         self.phase4_streamdiffusion()
         self.phase5_missing_pins()
         self.phase6_conflict_prone()
@@ -365,6 +406,20 @@ python -c "import torch; assert torch.cuda.is_available(), 'CUDA FAILED'; print(
 rem === PHASE 4: XFORMERS ===
 echo [3/8] Installing xformers...
 {xformers_line}
+
+rem === PHASE 4b: INSIGHTFACE (pre-built wheel, PyPI has no Windows wheels) ===
+echo [3/8] Installing insightface from pre-built wheel...
+rem Detect Python version and install matching wheel
+for /f "tokens=2 delims=." %%i in ('python -c "import sys; print(sys.version)"') do set PYMINOR=%%i
+if "%PYMINOR%"=="10" (
+    python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl
+) else if "%PYMINOR%"=="11" (
+    python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp311-cp311-win_amd64.whl
+) else if "%PYMINOR%"=="12" (
+    python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp312-cp312-win_amd64.whl
+) else (
+    echo WARNING: No pre-built insightface wheel for Python 3.%PYMINOR%, will build from source
+)
 
 rem === PHASE 5: STREAMDIFFUSION (setup.py handles most deps) ===
 echo [4/8] Installing StreamDiffusion (daydream fork)...
