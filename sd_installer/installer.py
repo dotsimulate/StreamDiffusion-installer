@@ -348,33 +348,25 @@ class Installer:
         """
         Generate a standalone batch file for installation.
 
-        This is for users who prefer running a .bat file directly.
+        Just calls the CLI install command - no duplicated logic.
 
         Args:
             output_path: Where to write the batch file. Default: base_folder/Install_StreamDiffusion.bat
-            python_exe: Python executable path for venv creation. Default: "python"
+            python_exe: Python executable path. Default: "py -3.11" on Windows.
 
         Returns:
             Path to the generated batch file.
         """
-        # Use provided python path or fall back to bare "python"
-        python_cmd = f'"{python_exe}"' if python_exe else "python"
         if output_path is None:
             output_path = self.base_folder / "Install_StreamDiffusion.bat"
 
-        config = self.pytorch_config
-        no_cache = "--no-cache-dir" if self.no_cache else ""
-
-        # Build torch packages string
-        torch_packages = f"torch=={config['torch']} torchvision=={config['torchvision']}"
-        if config["torchaudio"]:
-            torch_packages += f" torchaudio=={config['torchaudio']}"
-
-        # xformers line
-        if config["xformers"]:
-            xformers_line = f'python -m pip install {no_cache} xformers=={config["xformers"]}'
+        # Use provided python path, or default to py -3.11 launcher
+        if python_exe:
+            python_cmd = f'"{python_exe}"'
         else:
-            xformers_line = "echo Skipping xformers (not needed for this CUDA version)"
+            python_cmd = "py -3.11"
+
+        no_cache_flag = "--no-cache" if self.no_cache else ""
 
         content = f'''@echo off
 echo ========================================
@@ -383,86 +375,10 @@ echo  Daydream Fork with StreamV2V
 echo ========================================
 
 cd /d "{self.base_folder}"
+cd StreamDiffusion-installer
 
-rem === PHASE 1: VENV SETUP ===
-if not exist "venv" (
-    echo Creating virtual environment...
-    {python_cmd} -m venv venv
-)
-call "venv\\Scripts\\activate.bat"
+{python_cmd} -m sd_installer --base-folder "{self.base_folder}" install --cuda {self.cuda_version} {no_cache_flag}
 
-rem === PHASE 2: FOUNDATION (order matters!) ===
-echo [1/8] Installing pip, setuptools, wheel...
-python -m pip install {no_cache} --upgrade pip setuptools wheel
-
-echo [1/8] Locking numpy FIRST (prevents 2.x conflicts)...
-python -m pip install {no_cache} "numpy=={MANUAL_PINS['numpy']}" --force-reinstall
-
-rem === PHASE 3: PYTORCH (must be before StreamDiffusion) ===
-echo [2/8] Installing PyTorch with CUDA {self.cuda_version}...
-python -m pip install {no_cache} {torch_packages} --index-url {config['index_url']}
-python -m pip install {no_cache} cuda-python=={config['cuda_python']}
-
-rem Verify PyTorch CUDA
-python -c "import torch; assert torch.cuda.is_available(), 'CUDA FAILED'; print(f'PyTorch {{torch.__version__}} CUDA {{torch.version.cuda}}')"
-
-rem === PHASE 4: XFORMERS ===
-echo [3/8] Installing xformers...
-{xformers_line}
-
-rem === PHASE 4b: INSIGHTFACE (pre-built wheel, PyPI has no Windows wheels) ===
-echo [3/8] Installing insightface from pre-built wheel...
-rem Detect Python version and install matching wheel
-for /f "tokens=2 delims=." %%i in ('python -c "import sys; print(sys.version)"') do set PYMINOR=%%i
-if "%PYMINOR%"=="10" (
-    python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp310-cp310-win_amd64.whl
-) else if "%PYMINOR%"=="11" (
-    python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp311-cp311-win_amd64.whl
-) else if "%PYMINOR%"=="12" (
-    python -m pip install https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp312-cp312-win_amd64.whl
-) else (
-    echo WARNING: No pre-built insightface wheel for Python 3.%PYMINOR%, will build from source
-)
-
-rem === PHASE 5: STREAMDIFFUSION (setup.py handles most deps) ===
-echo [4/8] Installing StreamDiffusion (daydream fork)...
-rem setup.py is in base folder (base folder IS StreamDiffusion)
-python -m pip install {no_cache} -e ".[tensorrt,controlnet,ipadapter]"
-
-rem === PHASE 6: MISSING PINS (not in setup.py) ===
-echo [5/8] Installing packages not pinned in setup.py...
-python -m pip install {no_cache} "timm{MANUAL_PINS['timm']}"
-python -m pip install {no_cache} python-osc
-python -m pip install {no_cache} "peft=={MANUAL_PINS['peft']}"
-
-rem Force reinstall varshith15 diffusers (other deps may have overwritten it)
-echo [5/8] Ensuring varshith15 diffusers fork with kvo_cache support...
-python -m pip install {no_cache} --force-reinstall --no-deps "diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922"
-
-rem === PHASE 7: CONFLICT-PRONE PACKAGES (--no-deps) ===
-echo [6/8] Fixing conflict-prone packages...
-pip uninstall -y opencv-python-headless opencv-contrib-python 2>nul
-python -m pip install {no_cache} --no-deps "opencv-python=={MANUAL_PINS['opencv-python']}"
-
-rem === PHASE 8: FINAL NUMPY LOCK ===
-echo [7/8] Final numpy lock (other packages may have upgraded it)...
-python -m pip install {no_cache} "numpy=={MANUAL_PINS['numpy']}" --force-reinstall
-
-rem === PHASE 9: VERIFICATION ===
-echo [8/8] Verifying installation...
-python -c "import torch; assert torch.cuda.is_available(); print('torch CUDA: OK')"
-python -c "from streamdiffusion.config import load_config; print('StreamDiffusion: OK')"
-python -c "from timm.layers import RotaryEmbedding; print('timm RotaryEmbedding: OK')"
-python -c "import mediapipe as mp; mp.solutions.drawing_utils; print('mediapipe: OK')"
-python -c "from transformers import MT5Tokenizer; print('transformers MT5: OK')"
-python -c "from huggingface_hub import hf_hub_download; print('huggingface_hub: OK')"
-python -c "import numpy; assert numpy.__version__.startswith('1.'); print('numpy %%s: OK' %% numpy.__version__)"
-python -c "import inspect; from diffusers.models.attention_processor import Attention; assert 'kvo_cache' in inspect.signature(Attention.forward).parameters, 'Missing kvo_cache - wrong diffusers!'; print('diffusers (varshith15 fork with kvo_cache): OK')"
-python -c "from diffusers.utils import USE_PEFT_BACKEND; assert USE_PEFT_BACKEND, 'peft not detected!'; print('peft (USE_PEFT_BACKEND=True): OK')"
-
-echo ========================================
-echo Installation Complete
-echo ========================================
 pause
 '''
 
