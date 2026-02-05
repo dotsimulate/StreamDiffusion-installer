@@ -305,7 +305,7 @@ def cmd_generate_bat(args):
     )
 
     output = args.output or str(base / "Install_StreamDiffusion.bat")
-    installer.generate_batch_file(output)
+    installer.generate_batch_file(output, python_exe=args.python)
 
     print(f"\nGenerated: {output}")
     print("Run this batch file to install StreamDiffusionTD.")
@@ -402,6 +402,10 @@ def main():
     bat_parser.add_argument(
         "--output",
         help="Output path for batch file",
+    )
+    bat_parser.add_argument(
+        "--python",
+        help="Python executable path to use for venv creation (embeds in batch file)",
     )
     bat_parser.set_defaults(func=cmd_generate_bat)
 

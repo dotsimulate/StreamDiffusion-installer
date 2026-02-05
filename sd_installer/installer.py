@@ -344,7 +344,7 @@ class Installer:
 
         return success
 
-    def generate_batch_file(self, output_path: Optional[str] = None) -> str:
+    def generate_batch_file(self, output_path: Optional[str] = None, python_exe: Optional[str] = None) -> str:
         """
         Generate a standalone batch file for installation.
 
@@ -352,10 +352,13 @@ class Installer:
 
         Args:
             output_path: Where to write the batch file. Default: base_folder/Install_StreamDiffusion.bat
+            python_exe: Python executable path for venv creation. Default: "python"
 
         Returns:
             Path to the generated batch file.
         """
+        # Use provided python path or fall back to bare "python"
+        python_cmd = f'"{python_exe}"' if python_exe else "python"
         if output_path is None:
             output_path = self.base_folder / "Install_StreamDiffusion.bat"
 
@@ -384,7 +387,7 @@ cd /d "{self.base_folder}"
 rem === PHASE 1: VENV SETUP ===
 if not exist "venv" (
     echo Creating virtual environment...
-    python -m venv venv
+    {python_cmd} -m venv venv
 )
 call "venv\\Scripts\\activate.bat"
 
