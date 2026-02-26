@@ -25,6 +25,7 @@ MANUAL_PINS = {
     "opencv-python": "4.8.1.78",
     "python-osc": "",  # Required for TouchDesigner OSC communication
     "peft": "0.17.1",  # Required for Cached Attention (StreamV2V) - enables USE_PEFT_BACKEND
+    "protobuf": "4.25.3",  # Required by mediapipe, onnx/TensorRT - protobuf 6.x breaks serialization
 }
 
 # Pre-built insightface wheels for Windows (PyPI has no Windows wheels, requires C++ build tools)
@@ -288,9 +289,12 @@ class Installer:
         self._run_pip(["--no-deps", f"opencv-python=={MANUAL_PINS['opencv-python']}"])
 
     def phase7_numpy_lock(self):
-        """Phase 7: Final numpy lock (other packages may have upgraded it)."""
+        """Phase 7: Final numpy and protobuf lock (other packages may have upgraded them)."""
         self._report_progress(f"Final numpy lock (numpy=={MANUAL_PINS['numpy']})...", 7, 8)
         self._run_pip([f"numpy=={MANUAL_PINS['numpy']}", "--force-reinstall"])
+
+        self._report_progress(f"Final protobuf lock (protobuf=={MANUAL_PINS['protobuf']})...", 7, 8)
+        self._run_pip([f"protobuf=={MANUAL_PINS['protobuf']}", "--force-reinstall"])
 
     def phase8_verify(self) -> bool:
         """Phase 8: Verify installation with import tests."""

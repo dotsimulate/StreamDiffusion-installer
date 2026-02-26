@@ -272,6 +272,10 @@ KNOWN_ERRORS = {
         "cause": "peft not installed - Cached Attention (StreamV2V) requires peft for USE_PEFT_BACKEND=True",
         "fix": "pip install peft==0.17.1",
     },
+    "Failed to serialize proto": {
+        "cause": "protobuf version too new (6.x) - breaks ONNX model serialization during TensorRT engine build",
+        "fix": "pip install protobuf==4.25.3 --force-reinstall",
+    },
 }
 
 
