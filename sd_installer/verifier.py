@@ -107,7 +107,7 @@ class Verifier:
                 [self.python_exe, "-c", code],
                 capture_output=True,
                 text=True,
-                timeout=30,
+                timeout=120,
             )
 
             if result.returncode == 0:

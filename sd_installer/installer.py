@@ -25,7 +25,7 @@ MANUAL_PINS = {
     "opencv-python": "4.8.1.78",
     "python-osc": "",  # Required for TouchDesigner OSC communication
     "peft": "0.17.1",  # Required for Cached Attention (StreamV2V) - enables USE_PEFT_BACKEND
-    "protobuf": "4.25.3",  # Required by mediapipe, onnx/TensorRT - protobuf 6.x breaks serialization
+    "protobuf": "4.25.8",  # Required by mediapipe, onnx/TensorRT - protobuf 6.x breaks serialization, setup.py requires >=4.25.8
 }
 
 # Pre-built insightface wheels for Windows (PyPI has no Windows wheels, requires C++ build tools)

@@ -93,10 +93,10 @@ def install(cu: Optional[str] = None):
         print(f"Installing cuDNN: {cudnn_name}")
         run_pip(f"install {cudnn_name} --no-cache-dir")
 
-        # Install TensorRT for CUDA 12 (RTX 5090/Blackwell support)
-        tensorrt_version = "tensorrt==10.12.0.36"
-        print(f"Installing TensorRT for CUDA {cu}: {tensorrt_version}")
-        run_pip(f"install --extra-index-url https://pypi.nvidia.com {tensorrt_version} --no-cache-dir")
+        # Install TensorRT sub-packages directly (meta-package pip-inside-pip is broken on Windows)
+        trt_version = "10.12.0.36"
+        print(f"Installing TensorRT {trt_version} sub-packages for CUDA {cu}...")
+        run_pip(f"install --extra-index-url https://pypi.nvidia.com tensorrt_cu12_libs=={trt_version} tensorrt_cu12_bindings=={trt_version} --no-cache-dir")
 
     elif cuda_major == "12":
         print("Installing TensorRT for CUDA 12.x...")
@@ -106,10 +106,10 @@ def install(cu: Optional[str] = None):
         print(f"Installing cuDNN: {cudnn_name}")
         run_pip(f"install {cudnn_name} --no-cache-dir")
 
-        # Install TensorRT for CUDA 12
-        tensorrt_version = "tensorrt==10.12.0.36"
-        print(f"Installing TensorRT for CUDA {cu}: {tensorrt_version}")
-        run_pip(f"install --extra-index-url https://pypi.nvidia.com {tensorrt_version} --no-cache-dir")
+        # Install TensorRT sub-packages directly (meta-package pip-inside-pip is broken on Windows)
+        trt_version = "10.12.0.36"
+        print(f"Installing TensorRT {trt_version} sub-packages for CUDA {cu}...")
+        run_pip(f"install --extra-index-url https://pypi.nvidia.com tensorrt_cu12_libs=={trt_version} tensorrt_cu12_bindings=={trt_version} --no-cache-dir")
 
     elif cuda_major == "11":
         print("Installing TensorRT for CUDA 11.x...")
