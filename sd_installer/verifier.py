@@ -22,7 +22,7 @@ class VerificationResult:
 VERIFICATION_CHECKS = [
     (
         "torch CUDA",
-        "import torch; assert torch.cuda.is_available(), 'CUDA not available'; print(f'{torch.__version__}+cu{torch.version.cuda}')",
+        "import torch; assert torch.cuda.is_available(), 'CUDA not available'; print(f'{torch.__version__}+cu{torch.version.cuda} | {torch.cuda.get_device_name(0)}')",
         "PyTorch with CUDA"
     ),
     (
@@ -74,6 +74,16 @@ VERIFICATION_CHECKS = [
         "peft (USE_PEFT_BACKEND)",
         "from diffusers.utils import USE_PEFT_BACKEND; assert USE_PEFT_BACKEND, 'peft not detected'; print('OK')",
         "peft (required for Cached Attention/StreamV2V)"
+    ),
+    (
+        "protobuf version",
+        "import google.protobuf; v = google.protobuf.__version__; major = int(v.split('.')[0]); assert major < 5, f'protobuf {v} (>=5.x breaks TRT engine builds)'; print(v)",
+        "protobuf (<5.0 required for TRT)"
+    ),
+    (
+        "onnx version",
+        "import onnx; v = onnx.__version__; parts = [int(x) for x in v.split('.')[:2]]; assert parts[0] == 1 and parts[1] < 20, f'onnx {v} (>=1.20 removes float32_to_bfloat16)'; print(v)",
+        "onnx (<1.20 required for TRT)"
     ),
 ]
 
@@ -130,7 +140,7 @@ class Verifier:
                 name=name,
                 passed=False,
                 message=f"{description}: TIMEOUT",
-                error="Check timed out after 30 seconds",
+                error="Check timed out after 120 seconds",
             )
         except Exception as e:
             return VerificationResult(
@@ -186,9 +196,30 @@ class Verifier:
         """
         info = {
             "python_exe": self.python_exe,
+            "gpu": {},
             "checks": [],
             "versions": {},
         }
+
+        # Get GPU information
+        gpu_code = (
+            "import torch; "
+            "print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'NO CUDA'); "
+            "print(torch.cuda.mem_get_info(0)[1] // (1024**2) if torch.cuda.is_available() else 0); "
+            "print(torch.cuda.get_device_capability(0) if torch.cuda.is_available() else (0,0))"
+        )
+        try:
+            result = subprocess.run(
+                [self.python_exe, "-c", gpu_code],
+                capture_output=True, text=True, timeout=30,
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split('\n')
+                info["gpu"]["name"] = lines[0]
+                info["gpu"]["vram_mb"] = int(lines[1])
+                info["gpu"]["compute_capability"] = lines[2]
+        except Exception:
+            info["gpu"]["name"] = "ERROR"
 
         # Run all checks and collect detailed info
         for name, code, description in VERIFICATION_CHECKS:
@@ -214,6 +245,8 @@ class Verifier:
             ("onnx", "import onnx; print(onnx.__version__)"),
             ("onnxruntime", "import onnxruntime; print(onnxruntime.__version__)"),
             ("peft", "import peft; print(peft.__version__)"),
+            ("protobuf", "import google.protobuf; print(google.protobuf.__version__)"),
+            ("tensorrt", "import tensorrt; print(tensorrt.__version__)"),
         ]
 
         for pkg, code in version_checks:
