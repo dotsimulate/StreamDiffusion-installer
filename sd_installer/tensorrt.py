@@ -93,10 +93,12 @@ def install(cu: Optional[str] = None):
         print(f"Installing cuDNN: {cudnn_name}")
         run_pip(f"install {cudnn_name} --no-cache-dir")
 
-        # Install TensorRT sub-packages directly (meta-package pip-inside-pip is broken on Windows)
+        # tensorrt_cu12 is the CUDA 12 wrapper that owns tensorrt/__init__.py
+        # and depends on tensorrt_cu12_libs + tensorrt_cu12_bindings.
+        # All three are normal wheels with Requires-Dist (no pip-inside-pip).
         trt_version = "10.12.0.36"
-        print(f"Installing TensorRT {trt_version} sub-packages for CUDA {cu}...")
-        run_pip(f"install --extra-index-url https://pypi.nvidia.com tensorrt_cu12_libs=={trt_version} tensorrt_cu12_bindings=={trt_version} --no-cache-dir")
+        print(f"Installing TensorRT {trt_version} for CUDA {cu}...")
+        run_pip(f"install --extra-index-url https://pypi.nvidia.com tensorrt_cu12=={trt_version} --no-cache-dir")
 
     elif cuda_major == "12":
         print("Installing TensorRT for CUDA 12.x...")
@@ -106,10 +108,12 @@ def install(cu: Optional[str] = None):
         print(f"Installing cuDNN: {cudnn_name}")
         run_pip(f"install {cudnn_name} --no-cache-dir")
 
-        # Install TensorRT sub-packages directly (meta-package pip-inside-pip is broken on Windows)
+        # tensorrt_cu12 is the CUDA 12 wrapper that owns tensorrt/__init__.py
+        # and depends on tensorrt_cu12_libs + tensorrt_cu12_bindings.
+        # All three are normal wheels with Requires-Dist (no pip-inside-pip).
         trt_version = "10.12.0.36"
-        print(f"Installing TensorRT {trt_version} sub-packages for CUDA {cu}...")
-        run_pip(f"install --extra-index-url https://pypi.nvidia.com tensorrt_cu12_libs=={trt_version} tensorrt_cu12_bindings=={trt_version} --no-cache-dir")
+        print(f"Installing TensorRT {trt_version} for CUDA {cu}...")
+        run_pip(f"install --extra-index-url https://pypi.nvidia.com tensorrt_cu12=={trt_version} --no-cache-dir")
 
     elif cuda_major == "11":
         print("Installing TensorRT for CUDA 11.x...")
