@@ -11,12 +11,11 @@ Philosophy:
 5. Verify imports - Catch failures immediately
 """
 
-import os
-import sys
 import subprocess
-import shutil
+import sys
 from pathlib import Path
-from typing import Optional, Callable
+from typing import Callable, Optional
+
 
 # Version pins - packages NOT in setup.py that must be manually pinned
 MANUAL_PINS = {
@@ -65,7 +64,7 @@ PYTORCH_CONFIGS = {
     "cu128": {
         "torch": "2.7.0",
         "torchvision": "0.22.0",
-        "torchaudio": "2.7.0",
+        "torchaudio": None,
         "index_url": "https://download.pytorch.org/whl/cu128",
         "cuda_python": "12.9.0",
         "xformers": None,  # Not needed - PyTorch 2.7+ has native SDPA
@@ -103,10 +102,7 @@ class Installer:
 
         # Validate CUDA version
         if cuda_version not in PYTORCH_CONFIGS:
-            raise ValueError(
-                f"Unsupported CUDA version: {cuda_version}. "
-                f"Supported: {list(PYTORCH_CONFIGS.keys())}"
-            )
+            raise ValueError(f"Unsupported CUDA version: {cuda_version}. Supported: {list(PYTORCH_CONFIGS.keys())}")
 
         self.pytorch_config = PYTORCH_CONFIGS[cuda_version]
 
@@ -238,7 +234,7 @@ class Installer:
 
         version_str = result.stdout.strip()
         try:
-            major, minor = map(int, version_str.split('.'))
+            major, minor = map(int, version_str.split("."))
             py_version = (major, minor)
         except ValueError:
             print(f"  WARNING: Could not parse Python version '{version_str}', skipping insightface pre-install")
@@ -269,10 +265,13 @@ class Installer:
 
         # Force reinstall varshith15 diffusers (other deps may have overwritten it)
         self._report_progress("Ensuring varshith15 diffusers fork with kvo_cache support...", 5, 8)
-        self._run_pip([
-            "--force-reinstall", "--no-deps",
-            "diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922"
-        ])
+        self._run_pip(
+            [
+                "--force-reinstall",
+                "--no-deps",
+                "diffusers @ git+https://github.com/varshith15/diffusers.git@3e3b72f557e91546894340edabc845e894f00922",
+            ]
+        )
 
     def phase6_conflict_prone(self):
         """Phase 6: Fix conflict-prone packages with --no-deps."""
@@ -280,8 +279,7 @@ class Installer:
 
         # Remove conflicting opencv variants
         subprocess.run(
-            [str(self.python_exe), "-m", "pip", "uninstall", "-y",
-             "opencv-python-headless", "opencv-contrib-python"],
+            [str(self.python_exe), "-m", "pip", "uninstall", "-y", "opencv-python-headless", "opencv-contrib-python"],
             capture_output=True,
         )
 
@@ -386,7 +384,7 @@ cd StreamDiffusion-installer
 pause
 '''
 
-        with open(output_path, 'w', encoding='utf-8') as f:
+        with open(output_path, "w", encoding="utf-8") as f:
             f.write(content)
 
         print(f"Generated batch file: {output_path}")

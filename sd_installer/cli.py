@@ -15,13 +15,12 @@ Usage:
 """
 
 import argparse
-import os
 import sys
 from pathlib import Path
 
 
 def find_base_folder() -> Path:
-    """
+    r"""
     Find the StreamDiffusion base folder (where setup.py lives).
 
     Runtime structure:
@@ -47,9 +46,9 @@ def find_base_folder() -> Path:
     # __file__ = .../StreamDiffusion-installer/sd_installer/cli.py
     # We want: .../StreamDiffusion/
     this_file = Path(__file__).resolve()
-    sd_installer_pkg = this_file.parent          # sd_installer/
-    installer_repo = sd_installer_pkg.parent     # StreamDiffusion-installer/
-    base = installer_repo.parent                 # StreamDiffusion/
+    sd_installer_pkg = this_file.parent  # sd_installer/
+    installer_repo = sd_installer_pkg.parent  # StreamDiffusion-installer/
+    base = installer_repo.parent  # StreamDiffusion/
     if (base / "setup.py").exists():
         return base
 
@@ -85,7 +84,7 @@ def cmd_check(args):
         if venv_path.exists():
             print(f"Venv: Found at {venv_path}")
         else:
-            print(f"Venv: Not found (will be created during install)")
+            print("Venv: Not found (will be created during install)")
 
         # Check StreamDiffusion setup.py (base folder IS StreamDiffusion)
         setup_py = base / "setup.py"
@@ -197,7 +196,7 @@ def cmd_diagnose(args):
         print(f"  [{status}] {check['name']}")
         if check["error"]:
             # Print just the last line of the error
-            error_line = check["error"].split('\n')[-1][:60]
+            error_line = check["error"].split("\n")[-1][:60]
             print(f"         {error_line}")
 
     return 0
@@ -205,7 +204,7 @@ def cmd_diagnose(args):
 
 def cmd_repair(args):
     """Auto-fix known issues."""
-    from .verifier import Verifier, KNOWN_ERRORS
+    from .verifier import Verifier
 
     try:
         base = Path(args.base_folder) if args.base_folder else find_base_folder()
@@ -236,6 +235,7 @@ def cmd_repair(args):
     for check in info["checks"]:
         if not check["passed"] and check["error"]:
             from .verifier import match_known_error
+
             fix = match_known_error(check["error"])
             if fix:
                 fixes_needed.append((check["name"], fix))
@@ -245,10 +245,15 @@ def cmd_repair(args):
         # numpy 2.x
         numpy_ver = info["versions"].get("numpy", "")
         if numpy_ver.startswith("2."):
-            fixes_needed.append(("numpy version", {
-                "cause": f"numpy {numpy_ver} detected (2.x breaks things)",
-                "fix": "pip install numpy==1.26.4 --force-reinstall"
-            }))
+            fixes_needed.append(
+                (
+                    "numpy version",
+                    {
+                        "cause": f"numpy {numpy_ver} detected (2.x breaks things)",
+                        "fix": "pip install numpy==1.26.4 --force-reinstall",
+                    },
+                )
+            )
 
     if not fixes_needed:
         print("No known issues detected that can be auto-fixed.")
@@ -264,18 +269,19 @@ def cmd_repair(args):
 
     if not args.yes:
         response = input("Apply fixes? [y/N]: ")
-        if response.lower() != 'y':
+        if response.lower() != "y":
             print("Aborted.")
             return 0
 
     # Apply fixes
     import subprocess
+
     for name, fix in fixes_needed:
         print(f"Applying fix for {name}...")
         cmd = [str(python_exe), "-m", "pip"] + fix["fix"].replace("pip ", "").split()
         result = subprocess.run(cmd, capture_output=True, text=True)
         if result.returncode == 0:
-            print(f"  OK")
+            print("  OK")
         else:
             print(f"  FAILED: {result.stderr}")
 
@@ -314,7 +320,7 @@ def cmd_generate_bat(args):
 
 def cmd_install_tensorrt(args):
     """Install TensorRT packages."""
-    from .tensorrt import install, get_cuda_version_from_torch
+    from .tensorrt import get_cuda_version_from_torch, install
 
     print("StreamDiffusionTD TensorRT Installation")
     print("=" * 40)
@@ -381,7 +387,8 @@ def main():
     # repair command
     repair_parser = subparsers.add_parser("repair", help="Auto-fix known issues")
     repair_parser.add_argument(
-        "-y", "--yes",
+        "-y",
+        "--yes",
         action="store_true",
         help="Apply fixes without prompting",
     )

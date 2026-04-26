@@ -12,6 +12,7 @@ from typing import Optional
 @dataclass
 class VerificationResult:
     """Result of a single verification check."""
+
     name: str
     passed: bool
     message: str
@@ -23,67 +24,39 @@ VERIFICATION_CHECKS = [
     (
         "torch CUDA",
         "import torch; assert torch.cuda.is_available(), 'CUDA not available'; print(f'{torch.__version__}+cu{torch.version.cuda} | {torch.cuda.get_device_name(0)}')",
-        "PyTorch with CUDA"
+        "PyTorch with CUDA",
     ),
-    (
-        "StreamDiffusion",
-        "from streamdiffusion.config import load_config; print('OK')",
-        "StreamDiffusion core"
-    ),
-    (
-        "timm RotaryEmbedding",
-        "from timm.layers import RotaryEmbedding; print('OK')",
-        "timm (>=1.0.24 required)"
-    ),
-    (
-        "mediapipe",
-        "import mediapipe as mp; mp.solutions.drawing_utils; print('OK')",
-        "mediapipe solutions"
-    ),
-    (
-        "transformers MT5",
-        "from transformers import MT5Tokenizer; print('OK')",
-        "transformers (MT5Tokenizer)"
-    ),
-    (
-        "huggingface_hub",
-        "from huggingface_hub import hf_hub_download; print('OK')",
-        "huggingface_hub"
-    ),
+    ("StreamDiffusion", "from streamdiffusion.config import load_config; print('OK')", "StreamDiffusion core"),
+    ("timm RotaryEmbedding", "from timm.layers import RotaryEmbedding; print('OK')", "timm (>=1.0.24 required)"),
+    ("mediapipe", "import mediapipe as mp; mp.solutions.drawing_utils; print('OK')", "mediapipe solutions"),
+    ("transformers MT5", "from transformers import MT5Tokenizer; print('OK')", "transformers (MT5Tokenizer)"),
+    ("huggingface_hub", "from huggingface_hub import hf_hub_download; print('OK')", "huggingface_hub"),
     (
         "numpy version",
         "import numpy; v = numpy.__version__; assert v.startswith('1.'), f'numpy 2.x detected: {v}'; print(v)",
-        "numpy (<2.0.0 required)"
+        "numpy (<2.0.0 required)",
     ),
     (
         "diffusers fork",
         "import inspect; from diffusers.models.attention_processor import Attention; assert 'kvo_cache' in inspect.signature(Attention.forward).parameters, 'Missing kvo_cache'; print('OK')",
-        "diffusers (varshith15 fork with kvo_cache)"
+        "diffusers (varshith15 fork with kvo_cache)",
     ),
-    (
-        "accelerate",
-        "from accelerate import Accelerator; print('OK')",
-        "accelerate"
-    ),
-    (
-        "controlnet_aux",
-        "from controlnet_aux import OpenposeDetector; print('OK')",
-        "controlnet_aux"
-    ),
+    ("accelerate", "from accelerate import Accelerator; print('OK')", "accelerate"),
+    ("controlnet_aux", "from controlnet_aux import OpenposeDetector; print('OK')", "controlnet_aux"),
     (
         "peft (USE_PEFT_BACKEND)",
         "from diffusers.utils import USE_PEFT_BACKEND; assert USE_PEFT_BACKEND, 'peft not detected'; print('OK')",
-        "peft (required for Cached Attention/StreamV2V)"
+        "peft (required for Cached Attention/StreamV2V)",
     ),
     (
         "protobuf version",
         "import google.protobuf; v = google.protobuf.__version__; major = int(v.split('.')[0]); assert major < 5, f'protobuf {v} (>=5.x breaks TRT engine builds)'; print(v)",
-        "protobuf (<5.0 required for TRT)"
+        "protobuf (<5.0 required for TRT)",
     ),
     (
         "onnx version",
         "import onnx; v = onnx.__version__; parts = [int(x) for x in v.split('.')[:2]]; assert parts[0] == 1 and parts[1] < 20, f'onnx {v} (>=1.20 removes float32_to_bfloat16)'; print(v)",
-        "onnx (<1.20 required for TRT)"
+        "onnx (<1.20 required for TRT)",
     ),
 ]
 
@@ -178,7 +151,7 @@ class Verifier:
                     print(f"FAIL: {result.message}")
                     if result.error:
                         # Print first line of error
-                        error_line = result.error.split('\n')[-1]
+                        error_line = result.error.split("\n")[-1]
                         print(f"      {error_line}")
 
         if verbose:
@@ -211,10 +184,12 @@ class Verifier:
         try:
             result = subprocess.run(
                 [self.python_exe, "-c", gpu_code],
-                capture_output=True, text=True, timeout=30,
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode == 0:
-                lines = result.stdout.strip().split('\n')
+                lines = result.stdout.strip().split("\n")
                 info["gpu"]["name"] = lines[0]
                 info["gpu"]["vram_mb"] = int(lines[1])
                 info["gpu"]["compute_capability"] = lines[2]
@@ -224,12 +199,14 @@ class Verifier:
         # Run all checks and collect detailed info
         for name, code, description in VERIFICATION_CHECKS:
             result = self.check(name, code, description)
-            info["checks"].append({
-                "name": name,
-                "passed": result.passed,
-                "message": result.message,
-                "error": result.error,
-            })
+            info["checks"].append(
+                {
+                    "name": name,
+                    "passed": result.passed,
+                    "message": result.message,
+                    "error": result.error,
+                }
+            )
 
         # Get version information for key packages
         version_checks = [
@@ -290,8 +267,8 @@ KNOWN_ERRORS = {
         "fix": "pip install accelerate==1.10.0",
     },
     "'onnx.helper' has no attribute 'float32_to_bfloat16'": {
-        "cause": "onnx version too new",
-        "fix": "pip install onnx==1.18.0",
+        "cause": "onnx-graphsurgeon too old for onnx>=1.19 (float32_to_bfloat16 was removed)",
+        "fix": "pip install onnx-graphsurgeon==0.6.1 --extra-index-url https://pypi.ngc.nvidia.com",
     },
     "Missing kvo_cache": {
         "cause": "Wrong diffusers installed (vanilla instead of varshith15 fork)",
