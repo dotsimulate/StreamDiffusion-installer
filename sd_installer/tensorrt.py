@@ -287,7 +287,7 @@ def install(cu: Optional[str] = None):
         run_pip("install pywin32==311 --no-cache-dir")
     if platform.system() == "Windows" and not is_installed("triton"):
         print("Installing triton-windows...")
-        run_pip("install triton-windows==3.4.0.post21 --no-cache-dir")
+        run_pip("install triton-windows==3.6.0.post26 --no-cache-dir")
 
     # verify() runs in-process; drop any modules install() may have already imported
     # (via is_installed()) and invalidate the finder caches, so verify() picks up a

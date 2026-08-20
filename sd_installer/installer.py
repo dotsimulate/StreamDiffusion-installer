@@ -61,7 +61,7 @@ CUDA_LINK_WHEELS = {
     (
         3,
         11,
-    ): "https://github.com/forkni/cuda-link/releases/download/v1.12.1/cuda_link-1.12.1-cp311-cp311-win_amd64.whl",
+    ): "https://github.com/forkni/cuda-link/releases/download/v1.12.2/cuda_link-1.12.2-cp311-cp311-win_amd64.whl",
 }
 
 # PyTorch configurations by CUDA version
@@ -91,8 +91,8 @@ PYTORCH_CONFIGS = {
         "xformers": None,  # Skip - causes conflicts
     },
     "cu128": {
-        "torch": "2.8.0",
-        "torchvision": "0.23.0",
+        "torch": "2.11.0",
+        "torchvision": "0.26.0",
         "torchaudio": None,
         "index_url": "https://download.pytorch.org/whl/cu128",
         "cuda_python": "12.9.0",
@@ -334,7 +334,7 @@ class Installer:
 
         wheel_url = CUDA_LINK_WHEELS.get(py_version)
         if wheel_url:
-            self._report_progress(f"Installing cuda-link 1.12.1 from pre-built wheel (Python {version_str})...", 4, 8)
+            self._report_progress(f"Installing cuda-link 1.12.2 from pre-built wheel (Python {version_str})...", 4, 8)
             self._run_pip(["--no-deps", wheel_url], check=False)
         else:
             print(f"  WARNING: No pre-built cuda-link wheel for Python {version_str}")
