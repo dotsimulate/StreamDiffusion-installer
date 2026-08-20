@@ -252,10 +252,10 @@ def install(cu: Optional[str] = None):
     # Install additional TensorRT tools
     if not is_installed("polygraphy"):
         print("Installing polygraphy...")
-        run_pip("install polygraphy==0.49.26 --extra-index-url https://pypi.ngc.nvidia.com --no-cache-dir")
+        run_pip("install polygraphy==0.49.26 --extra-index-url https://pypi.nvidia.com --no-cache-dir")
     if not is_installed("onnx_graphsurgeon"):
         print("Installing onnx-graphsurgeon...")
-        run_pip("install onnx-graphsurgeon==0.6.1 --extra-index-url https://pypi.ngc.nvidia.com --no-cache-dir")
+        run_pip("install onnx-graphsurgeon==0.6.1 --extra-index-url https://pypi.nvidia.com --no-cache-dir")
 
     # FP8 quantization dependencies (CUDA 12 only).
     # Previously missing — caused ImportError in fp8_quantize.py when users enabled FP8.

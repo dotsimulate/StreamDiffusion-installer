@@ -325,7 +325,7 @@ KNOWN_ERRORS = {
     },
     "'onnx.helper' has no attribute 'float32_to_bfloat16'": {
         "cause": "onnx-graphsurgeon too old for onnx>=1.19 (float32_to_bfloat16 was removed)",
-        "fix": "pip install onnx-graphsurgeon==0.6.1 --extra-index-url https://pypi.ngc.nvidia.com",
+        "fix": "pip install onnx-graphsurgeon==0.6.1 --extra-index-url https://pypi.nvidia.com",
     },
     "Missing kvo_cache": {
         "cause": "Wrong diffusers installed (vanilla instead of varshith15 fork)",

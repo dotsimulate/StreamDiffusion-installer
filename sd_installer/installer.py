@@ -42,6 +42,17 @@ INSIGHTFACE_WHEELS = {
     (3, 12): "https://github.com/Gourieff/Assets/raw/main/Insightface/insightface-0.7.3-cp312-cp312-win_amd64.whl",
 }
 
+# stringzilla 5.1.2 (latest; pulled in transitively via insightface -> albumentations ->
+# albucore's unbounded `stringzilla>=3.10.4`) ships no cp311 win_amd64 wheel, so pip falls back
+# to building it from source -- which reliably fatal-errors (C1001 internal compiler error in
+# stringzilla/cipher/icelake.h under /LTCG, linker exit 0xC0000005) on MSVC toolsets <= 14.38
+# (VS 2022 17.8 and earlier). simsimd is albucore's other SIMD dependency and carries the same
+# risk profile. Passed via --only-binary in pip_args below so it applies to every install in
+# this session, including the transitive pull during phase3b_insightface. This is self-healing:
+# pip falls back to the newest wheel-bearing version (5.1.1 today), and the moment upstream
+# publishes a 5.1.2+ Windows wheel, pip picks it up automatically -- no manual bump needed.
+NO_SOURCE_BUILD = ["stringzilla", "simsimd"]
+
 # Pre-built cuda-link wheel (CUDA-IPC zero-copy transport). setup.py's cuda-link pin lives only in
 # the optional cuda_ipc extra as a git ref (compiled cp311 extension) — installing that extra would
 # force an MSVC/nvcc source build. Install the prebuilt wheel directly instead, --no-deps, so this
@@ -86,6 +97,19 @@ PYTORCH_CONFIGS = {
         "index_url": "https://download.pytorch.org/whl/cu128",
         "cuda_python": "12.9.0",
         "xformers": None,  # Not needed - PyTorch 2.7+ has native SDPA
+        # Two transitive nvidia-*-cu12 deps otherwise float unconstrained: cuda-bindings (pulled
+        # in by cuda-python) requires nvidia-cuda-nvrtc-cu12 with no upper bound, and
+        # nvidia-cudnn-cu12 (pulled in later via onnxruntime-gpu[cudnn]) requires
+        # nvidia-cublas-cu12 with no bound at all -- so pip silently resolves both to whatever is
+        # newest (12.9.x as of this writing), drifting the install off the CUDA 12.8 toolchain
+        # this config targets. Pinned here for install reproducibility only: on Windows these
+        # wheels' DLLs are never actually loaded at runtime (torch's own bundled CUDA 12.8/cuDNN
+        # 9.x in torch/lib is what's on the DLL search path -- see cuda_dll_path.py), so this
+        # does not change GPU behavior, only what gets downloaded.
+        "cuda_pins": {
+            "nvidia-cublas-cu12": "12.8.5.5",
+            "nvidia-cuda-nvrtc-cu12": "12.8.93",
+        },
     },
 }
 
@@ -141,6 +165,8 @@ class Installer:
         args = [str(self.python_exe), "-m", "pip", "install"]
         if self.no_cache:
             args.append("--no-cache-dir")
+        # See NO_SOURCE_BUILD above: never let these build from source on Windows.
+        args.append(f"--only-binary={','.join(NO_SOURCE_BUILD)}")
         return args
 
     def _report_progress(self, message: str, step: int, total: int):
@@ -219,6 +245,13 @@ class Installer:
         # Install cuda-python
         self._report_progress(f"Installing cuda-python=={config['cuda_python']}...", 2, 8)
         self._run_pip([f"cuda-python=={config['cuda_python']}"])
+
+        # Pin unconstrained transitive CUDA deps (see "cuda_pins" comment on PYTORCH_CONFIGS
+        # above) before anything downstream can float them to a newer, unpinned release.
+        cuda_pins = config.get("cuda_pins")
+        if cuda_pins:
+            self._report_progress("Pinning CUDA 12.8 transitive deps for reproducibility...", 2, 8)
+            self._run_pip([f"{pkg}=={version}" for pkg, version in cuda_pins.items()])
 
         # Verify PyTorch CUDA
         result = self._run_python(
@@ -449,6 +482,41 @@ class Installer:
         verifier = Verifier(str(self.python_exe))
         return verifier.run_all()
 
+    def _preflight_check_ngc_index(self) -> None:
+        """Warn if pip config still references the decommissioned NVIDIA NGC PyPI mirror.
+
+        pypi.ngc.nvidia.com was retired and is now NXDOMAIN; the live replacement is
+        pypi.nvidia.com. The dead index is typically injected into a user/global pip.ini
+        by the deprecated nvidia-pyindex shim, and pip retries it (5x per package, per
+        index) on every single install below -- a wall of NameResolutionError warnings
+        that can bury real errors, plus full DNS-timeout delays on networks that
+        blackhole rather than NXDOMAIN. We cannot edit another user's pip.ini from here,
+        so surface one clear, actionable warning instead of letting it happen silently.
+        """
+        try:
+            result = subprocess.run(
+                [sys.executable, "-m", "pip", "config", "debug"],
+                capture_output=True,
+                text=True,
+                timeout=15,
+            )
+            if "pypi.ngc.nvidia.com" in result.stdout:
+                print()
+                print("  WARNING: pip config references the decommissioned NVIDIA NGC PyPI")
+                print("  mirror (pypi.ngc.nvidia.com), which no longer resolves. Every pip")
+                print("  install below will retry against it before falling back to PyPI --")
+                print("  expect noisy NameResolutionError warnings (and possible delays).")
+                print("  Fix: remove the 'extra-index-url' / 'trusted-host' lines referencing")
+                print("  pypi.ngc.nvidia.com from pip.ini, typically found at:")
+                print("    %APPDATA%\\pip\\pip.ini")
+                print("    %USERPROFILE%\\pip\\pip.ini")
+                print("    %PROGRAMDATA%\\pip\\pip.ini")
+                print("  (auto-generated by the deprecated nvidia-pyindex package)")
+                print()
+        except Exception:
+            # Diagnostic-only -- must never break the actual install.
+            pass
+
     def _write_install_error_report(self, exc: BaseException) -> None:
         """Best-effort diagnostic dump on install failure. Never raises -- a bug here must
         not mask the real installation error, which the caller re-raises regardless."""
@@ -492,6 +560,8 @@ class Installer:
         print(f"Base folder: {self.base_folder}")
         print(f"CUDA version: {self.cuda_version}")
         print()
+
+        self._preflight_check_ngc_index()
 
         # Create venv if needed
         self.create_venv(python_exe)
