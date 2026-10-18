@@ -520,7 +520,7 @@ class Installer:
             True if installation and verification succeeded.
         """
         print("=" * 50)
-        print(" StreamDiffusionTD v0.4.1 Installation")
+        print(" StreamDiffusionTD v0.4.x Installation")
         print(" Daydream Fork with StreamV2V")
         print("=" * 50)
         print()
@@ -595,7 +595,7 @@ class Installer:
 
         content = f'''@echo off
 echo ========================================
-echo  StreamDiffusionTD v0.4.1 Installation
+echo  StreamDiffusionTD v0.4.x Installation
 echo  Daydream Fork with StreamV2V
 echo ========================================
 
