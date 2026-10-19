@@ -11,10 +11,29 @@ Philosophy:
 5. Verify imports - Catch failures immediately
 """
 
+import os
+import re
 import subprocess
 import sys
 from pathlib import Path
 from typing import Callable, Optional
+
+# The operator passes its own version (Txversion) here when it runs the installer.
+# Older operators don't set it, so the banner falls back to the release line.
+TOX_VERSION_ENV = "SDTD_TOX_VERSION"
+FALLBACK_BANNER_VERSION = "v0.4.x"
+
+
+def tox_version() -> str:
+    """The calling operator's version, limited to characters that are safe in a .bat echo/set line."""
+    return re.sub(r"[^A-Za-z0-9._+-]", "", os.environ.get(TOX_VERSION_ENV, ""))[:40]
+
+
+def banner_version() -> str:
+    version = tox_version()
+    if not version:
+        return FALLBACK_BANNER_VERSION
+    return version if version[0] in "vV" else f"v{version}"
 
 # Version pins - packages NOT in setup.py that must be manually pinned
 MANUAL_PINS = {
@@ -520,7 +539,7 @@ class Installer:
             True if installation and verification succeeded.
         """
         print("=" * 50)
-        print(" StreamDiffusionTD v0.4.x Installation")
+        print(f" StreamDiffusionTD {banner_version()} Installation")
         print(" Daydream Fork with StreamV2V")
         print("=" * 50)
         print()
@@ -593,9 +612,14 @@ class Installer:
 
         no_cache_flag = "--no-cache" if self.no_cache else ""
 
+        # The .bat runs later in its own window, so carry the version into it for the
+        # install command's banner too.
+        version = tox_version()
+        set_version = f'set "{TOX_VERSION_ENV}={version}"\n' if version else ""
+
         content = f'''@echo off
-echo ========================================
-echo  StreamDiffusionTD v0.4.x Installation
+{set_version}echo ========================================
+echo  StreamDiffusionTD {banner_version()} Installation
 echo  Daydream Fork with StreamV2V
 echo ========================================
 
