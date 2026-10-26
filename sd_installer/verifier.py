@@ -4,9 +4,33 @@ StreamDiffusionTD Installation Verifier
 Runs import tests to verify installation is working correctly.
 """
 
+import re
 import subprocess
 from dataclasses import dataclass
 from typing import Optional
+
+from .installer import CUDA_LINK_WHEELS
+
+
+def expected_cuda_link_version() -> str:
+    """The cuda-link version of the cp311 wheel phase4b installs (the one URL every check follows)."""
+    match = re.search(r"/cuda_link-([0-9][0-9A-Za-z.]*)-cp311-", CUDA_LINK_WHEELS.get((3, 11), ""))
+    return match.group(1) if match else ""
+
+
+def cuda_link_check_code(expected: str) -> str:
+    """Exact-version check: an older importable cuda-link left behind by a failed wheel install
+    must fail here, because TouchDesigner's component only runs against this exact version."""
+    return (
+        "import sys\n"
+        "if not (sys.platform == 'win32' and sys.version_info[:2] == (3, 11)):\n"
+        "    print('SKIP (cp311 Windows wheel only)')\n"
+        "else:\n"
+        "    import cuda_link\n"
+        "    v = getattr(cuda_link, '__version__', '')\n"
+        f"    assert v == {expected!r}, 'cuda-link ' + (v or 'without a version') + ' installed, {expected} required'\n"
+        "    print(v)\n"
+    )
 
 
 @dataclass
@@ -72,13 +96,8 @@ VERIFICATION_CHECKS = [
     ("python-osc", "import pythonosc; print('OK')", "python-osc (TD OSC comms, phase5)"),
     (
         "cuda-link",
-        "import sys\n"
-        "if not (sys.platform == 'win32' and sys.version_info[:2] == (3, 11)):\n"
-        "    print('SKIP (cp311 Windows wheel only)')\n"
-        "else:\n"
-        "    import cuda_link\n"
-        "    print(getattr(cuda_link, '__version__', 'OK'))\n",
-        "cuda-link (CUDA-IPC zero-copy transport, phase4b)",
+        cuda_link_check_code(expected_cuda_link_version()),
+        f"cuda-link {expected_cuda_link_version()} (CUDA-IPC zero-copy transport, phase4b)",
     ),
     (
         "insightface",
