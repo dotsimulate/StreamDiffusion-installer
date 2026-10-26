@@ -80,7 +80,7 @@ CUDA_LINK_WHEELS = {
     (
         3,
         11,
-    ): "https://github.com/forkni/cuda-link/releases/download/v1.13.0/cuda_link-1.13.0-cp311-cp311-win_amd64.whl",
+    ): "https://github.com/forkni/cuda-link/releases/download/v1.14.1/cuda_link-1.14.1-cp311-cp311-win_amd64.whl",
 }
 
 # PyTorch configurations by CUDA version
@@ -353,8 +353,11 @@ class Installer:
 
         wheel_url = CUDA_LINK_WHEELS.get(py_version)
         if wheel_url:
-            self._report_progress(f"Installing cuda-link 1.13.0 from pre-built wheel (Python {version_str})...", 4, 8)
-            self._run_pip(["--no-deps", wheel_url], check=False)
+            self._report_progress(f"Installing cuda-link 1.14.1 from pre-built wheel (Python {version_str})...", 4, 8)
+            result = self._run_pip(["--no-deps", wheel_url], check=False)
+            if result.returncode != 0:
+                print(f"  WARNING: cuda-link wheel install failed: {result.stderr.strip()}")
+                print("  TouchDesigner library mode will not activate until cuda-link 1.14.1 is installed")
         else:
             print(f"  WARNING: No pre-built cuda-link wheel for Python {version_str}")
             print("  CUDA-IPC zero-copy export will fall back to the mirror-DAT transport")
