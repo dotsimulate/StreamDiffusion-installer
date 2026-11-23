@@ -80,8 +80,19 @@ CUDA_LINK_WHEELS = {
     (
         3,
         11,
-    ): "https://github.com/forkni/cuda-link/releases/download/v1.14.1/cuda_link-1.14.1-cp311-cp311-win_amd64.whl",
+    ): "https://github.com/forkni/cuda-link/releases/download/v2.0.0/cuda_link-2.0.0-cp311-cp311-win_amd64.whl",
 }
+
+
+def cuda_link_wheel_version() -> str:
+    """The cuda-link version of the cp311 wheel phase4b installs, read from its URL.
+
+    The URL is the one place that names the version: phase4b's messages and the verifier's
+    exact-version check both follow it, so a bump is one edit.
+    """
+    match = re.search(r"/cuda_link-([0-9][0-9A-Za-z.]*)-cp311-", CUDA_LINK_WHEELS.get((3, 11), ""))
+    return match.group(1) if match else ""
+
 
 # PyTorch configurations by CUDA version
 PYTORCH_CONFIGS = {
@@ -336,7 +347,8 @@ class Installer:
 
         Not covered by any setup.py extra actually installed above (cuda_ipc is intentionally
         skipped to avoid a source build) — install the compiled wheel directly. Non-fatal: if no
-        wheel exists for this venv's Python, CUDA-IPC falls back to the mirror-DAT transport.
+        wheel exists for this venv's Python, TouchDesigner uses CPU shared memory instead of
+        CUDA-IPC (the cuda-link 2.x .tox ships no mirror DATs to fall back to).
         """
         result = self._run_python("import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
         if result.returncode != 0:
@@ -353,67 +365,15 @@ class Installer:
 
         wheel_url = CUDA_LINK_WHEELS.get(py_version)
         if wheel_url:
-            self._report_progress(f"Installing cuda-link 1.14.1 from pre-built wheel (Python {version_str})...", 4, 8)
+            version = cuda_link_wheel_version()
+            self._report_progress(f"Installing cuda-link {version} from pre-built wheel (Python {version_str})...", 4, 8)
             result = self._run_pip(["--no-deps", wheel_url], check=False)
             if result.returncode != 0:
                 print(f"  WARNING: cuda-link wheel install failed: {result.stderr.strip()}")
-                print("  TouchDesigner library mode will not activate until cuda-link 1.14.1 is installed")
+                print(f"  TouchDesigner library mode will not activate until cuda-link {version} is installed")
         else:
             print(f"  WARNING: No pre-built cuda-link wheel for Python {version_str}")
-            print("  CUDA-IPC zero-copy export will fall back to the mirror-DAT transport")
-
-    def phase4c_cuda_link_env(self):
-        """Phase 4c: Persist CUDALINK_DOORBELL (Windows only).
-
-        cuda_link library resolution no longer uses an env var: TouchDesigner's
-        cuda_link_bootstrap.py resolves the installed package via a layered lookup instead
-        (explicit argument -> Basefolder par -> dotsimulate config file -> plain `import
-        cuda_link` off TD's existing sys.path / Preferences module path). CUDALINK_LIB_PATH
-        is retired -- setting it has no effect on resolution anymore, so this phase no
-        longer persists it.
-
-        CUDALINK_DOORBELL=1:
-        Enables the Win32 named-event doorbell so the cuda-link native wait backend reaches its
-        low-latency target instead of silently falling back to poll-sleep. The SD<->TD topology is
-        bidirectional -- TD's Sender and SD's Exporter are each a producer on their own IPC leg --
-        and the doorbell event is only created by a producer whose CUDALINK_DOORBELL=1. TD's Sender
-        runs inside TD's own bundled-Python *process*, which reads its environment from user/system
-        scope only; a runtime `os.environ.setdefault` (as used for
-        CUDALINK_TORCH_GPU_WAIT_ADAPTIVE in td_manager.py) cannot reach a separate process, so this
-        must be persisted here instead. CUDALINK_WAIT_BACKEND is deliberately left unset -- its
-        default "auto" already selects the native path.
-
-        SDTD_BASE_FOLDER_PATH is retired: it was a second machine-wide setx slot (like the
-        now-retired CUDALINK_LIB_PATH) and shared its failure mode -- one value, last install
-        wins, so a second StreamDiffusion install on the same machine silently pointed the
-        first install's error-report dumps at the wrong repo root.
-        streamdiffusion.utils.diagnostics.write_error_report already falls back to a
-        __file__-relative repo root when the env var is unset, and that fallback is inherently
-        anchored to whichever install actually crashed, so nothing replaces this setx call.
-
-        setx writes to HKCU\\Environment (user scope) and only affects processes started
-        *after* it runs, so a fresh TD session is needed to pick up CUDALINK_DOORBELL.
-        Non-fatal: if setx fails or this isn't Windows, TD falls back to the poll-sleep wait
-        backend.
-        """
-        if sys.platform != "win32":
-            return  # setx is a Windows-only mechanism; non-Windows TD launches are unaffected
-
-        # CUDALINK_DOORBELL=1 enables the Win32 named-event doorbell so the cuda-link native wait
-        # backend reaches its low-latency target. Must be set on the *producer* side, and SD's TD
-        # topology is bidirectional (TD Sender + SD Exporter are both producers). TD's Sender runs
-        # in TD's own bundled-Python *process*, which reads env from user/system scope only -- a
-        # runtime os.environ.setdefault in td_manager.py can't reach it, so it must be persisted
-        # here.
-        try:
-            db_result = subprocess.run(["setx", "CUDALINK_DOORBELL", "1"], capture_output=True, text=True)
-        except OSError as setx_exc:
-            print(f"  WARNING: setx failed to persist CUDALINK_DOORBELL: {setx_exc}")
-        else:
-            if db_result.returncode != 0:
-                print(f"  WARNING: setx failed to persist CUDALINK_DOORBELL: {db_result.stderr.strip()}")
-            else:
-                print("  CUDALINK_DOORBELL=1 persisted (enables doorbell/native-wait IPC fast path).")
+            print("  CUDA-IPC is unavailable; TouchDesigner falls back to CPU shared memory")
 
     def phase5_missing_pins(self):
         """Phase 5: Install packages not pinned in setup.py and fix diffusers."""
@@ -564,7 +524,6 @@ class Installer:
             ("phase3b_insightface", self.phase3b_insightface),  # insightface from wheel (Windows)
             ("phase4_streamdiffusion", self.phase4_streamdiffusion),
             ("phase4b_cuda_link", self.phase4b_cuda_link),  # cuda-link from wheel (CUDA-IPC transport)
-            ("phase4c_cuda_link_env", self.phase4c_cuda_link_env),  # CUDALINK_DOORBELL
             ("phase5_missing_pins", self.phase5_missing_pins),
             ("phase6_conflict_prone", self.phase6_conflict_prone),
             ("phase7_numpy_lock", self.phase7_numpy_lock),
