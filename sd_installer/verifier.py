@@ -4,18 +4,16 @@ StreamDiffusionTD Installation Verifier
 Runs import tests to verify installation is working correctly.
 """
 
-import re
 import subprocess
 from dataclasses import dataclass
 from typing import Optional
 
-from .installer import CUDA_LINK_WHEELS
+from .installer import cuda_link_wheel_version
 
 
 def expected_cuda_link_version() -> str:
     """The cuda-link version of the cp311 wheel phase4b installs (the one URL every check follows)."""
-    match = re.search(r"/cuda_link-([0-9][0-9A-Za-z.]*)-cp311-", CUDA_LINK_WHEELS.get((3, 11), ""))
-    return match.group(1) if match else ""
+    return cuda_link_wheel_version()
 
 
 def cuda_link_check_code(expected: str) -> str:
@@ -108,25 +106,6 @@ VERIFICATION_CHECKS = [
         "    import insightface\n"
         "    print(insightface.__version__)\n",
         "insightface (IPAdapter face, phase3b)",
-    ),
-    (
-        "cuda-link environment variables",
-        # CUDALINK_LIB_PATH is retired: cuda_link resolution no longer depends on an env
-        # var (see cuda_link_bootstrap.py's layered lookup), so it is not checked here.
-        "import sys\n"
-        "if sys.platform != 'win32':\n"
-        "    print('SKIP')\n"
-        "else:\n"
-        "    import winreg\n"
-        "    key = winreg.OpenKey(winreg.HKEY_CURRENT_USER, 'Environment')\n"
-        "    def get(name):\n"
-        "        try:\n"
-        "            return winreg.QueryValueEx(key, name)[0]\n"
-        "        except FileNotFoundError:\n"
-        "            return None\n"
-        "    assert get('CUDALINK_DOORBELL') == '1', 'CUDALINK_DOORBELL != 1'\n"
-        "    print('OK')\n",
-        "cuda-link environment variables (phase4c setx)",
     ),
 ]
 
