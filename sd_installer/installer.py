@@ -80,7 +80,7 @@ CUDA_LINK_WHEELS = {
     (
         3,
         11,
-    ): "https://github.com/forkni/cuda-link/releases/download/v2.0.0/cuda_link-2.0.0-cp311-cp311-win_amd64.whl",
+    ): "https://github.com/forkni/cuda-link/releases/download/v2.2.0/cuda_link-2.2.0-cp311-cp311-win_amd64.whl",
 }
 
 
